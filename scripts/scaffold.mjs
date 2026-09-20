@@ -350,6 +350,43 @@ function stripVersion(content) {
   return content.replace(/^\s*"version"\s*:\s*"[^"]*",?\s*$/m, "");
 }
 
+// Minimal line diff (LCS-based) producing unified-style output. Stdlib only — no dependency.
+function lineDiff(expected, actual) {
+  const a = expected.split("\n");
+  const b = actual.split("\n");
+  // Longest common subsequence, then emit -/+ lines.
+  const n = a.length;
+  const m = b.length;
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] =
+        a[i] === b[j]
+          ? dp[i + 1][j + 1] + 1
+          : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const out = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      out.push(`    ${a[i]}`);
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      out.push(`-   ${a[i]}`);
+      i++;
+    } else {
+      out.push(`+   ${b[j]}`);
+      j++;
+    }
+  }
+  while (i < n) out.push(`-   ${a[i++]}`);
+  while (j < m) out.push(`+   ${b[j++]}`);
+  return out;
+}
+
 function checkMode(root, config, outputs) {
   const states = [];
   for (const out of outputs) {
@@ -364,10 +401,15 @@ function checkMode(root, config, outputs) {
     const isPkgJson = /(^|\/)package\.json$/.test(out.output);
     const expected = isPkgJson ? stripVersion(out.content) : out.content;
     const actual = isPkgJson ? stripVersion(disk) : disk;
-    states.push({
-      path: out.output,
-      state: actual === expected ? "in_sync" : "drifted",
-    });
+    if (actual === expected) {
+      states.push({ path: out.output, state: "in_sync" });
+    } else {
+      states.push({
+        path: out.output,
+        state: "drifted",
+        diff: lineDiff(expected, actual),
+      });
+    }
   }
 
   // unexpected: a known template output that exists on disk but was NOT produced by this
@@ -389,10 +431,17 @@ function checkMode(root, config, outputs) {
 
 function reportStates(states) {
   let ok = true;
+  const MAX_DIFF_LINES = 20;
   for (const s of states) {
     if (s.state === "in_sync") continue;
     ok = false;
     console.error(`  ${s.state}: ${s.path}`);
+    if (s.diff && s.diff.length > 0) {
+      const shown = s.diff.slice(0, MAX_DIFF_LINES);
+      for (const line of shown) console.error(line);
+      const hidden = s.diff.length - shown.length;
+      if (hidden > 0) console.error(`  … ${hidden} more line(s) differ`);
+    }
   }
   return ok;
 }
