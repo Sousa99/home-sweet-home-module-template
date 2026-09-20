@@ -53,6 +53,10 @@ These are application code defaults that live in the module's source and are wri
 - [ ] Confirm `{{GHCR_ORG}}` is the correct GHCR namespace for this module's images
 - [ ] Confirm `@{{NPM_SCOPE}}` is the correct npm/GitHub Packages scope
 - [ ] Confirm the umbrella link `{{UMBRELLA_LINK}}` (placeholder until a Home Sweet Home org exists)
+- [ ] **One-time grant**: if this module installs shared packages published from another repo
+  (e.g. `@{{NPM_SCOPE}}/homesweethome-config`), grant this repo read access in that package's
+  GitHub Packages settings → "Manage Actions access". CI then works with `GITHUB_TOKEN`
+  (the workflows already declare `packages: read`).
 
 ## 🧬 Technology variants
 
