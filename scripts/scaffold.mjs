@@ -18,7 +18,7 @@ import {
   writeFileSync,
   mkdirSync,
 } from "node:fs";
-import { resolve, relative, dirname } from "node:path";
+import { resolve, dirname } from "node:path";
 import { parse as parseYaml } from "yaml";
 
 const CONFIG_FILE = "module.config.yaml";
@@ -67,7 +67,6 @@ const STACK_KEYS = ["backend", "frontend", "tooling"];
 
 const VALID_PACKAGES = ["backend", "frontend"];
 
-const TOKEN_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SCOPE_PATTERN = /^[a-z0-9]+$/;
 const GHCR_PATTERN = /^ghcr\.io\/[a-z0-9]+$/;
