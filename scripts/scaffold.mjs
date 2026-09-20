@@ -321,10 +321,14 @@ function renderAll(root, config) {
     content = applyConditionals(content, config.packages);
     const result = renderTemplate(content, tokens, template);
     if (result.error) return { errors: [result.error] };
+    // Normalize: ensure a trailing newline so rendered output matches Prettier-formatted files.
+    const normalized = result.content.endsWith("\n")
+      ? result.content
+      : `${result.content}\n`;
     outputs.push({
       template,
       output: outputPath(template),
-      content: result.content,
+      content: normalized,
     });
   }
   return { outputs };

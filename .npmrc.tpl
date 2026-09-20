@@ -1,0 +1,1 @@
+{{NPM_SCOPE_MAPPING}}
