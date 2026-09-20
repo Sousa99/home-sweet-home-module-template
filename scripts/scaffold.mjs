@@ -340,7 +340,7 @@ function writeOutputs(root, outputs) {
   }
 }
 
-function checkMode(root, outputs) {
+function checkMode(root, config, outputs) {
   const states = [];
   for (const out of outputs) {
     const abs = resolve(root, out.output);
@@ -357,11 +357,16 @@ function checkMode(root, outputs) {
     });
   }
 
-  // unexpected: enabled outputs that exist on disk but were not produced by this render
+  // unexpected: a known template output that exists on disk but was NOT produced by this
+  // render (e.g. a leftover frontend file in a backend-only module). A file is a "known
+  // template output" only if a .tpl template produces it — hand-written app files (src/,
+  // specs/ docs, .specify/memory) are never unexpected.
   const produced = new Set(outputs.map((o) => o.output));
+  const allOutputs = discoverTemplates(root).map((t) => outputPath(t));
   for (const f of walkFiles(root)) {
     if (f.endsWith(".tpl")) continue;
     if (NON_TEMPLATES.has(f)) continue;
+    if (!allOutputs.includes(f)) continue;
     if (produced.has(f)) continue;
     states.push({ path: f, state: "unexpected" });
   }
@@ -409,7 +414,7 @@ function main() {
   }
 
   if (flags.check) {
-    const states = checkMode(root, outputs);
+    const states = checkMode(root, config, outputs);
     const ok = reportStates(states);
     process.exit(ok ? 0 : 1);
   }
