@@ -23,6 +23,11 @@ stack:
 # Umbrella identity (placeholder until a Home Sweet Home org/hub exists)
 umbrella_link: https://github.com/
 
+# Styling theme (config-driven; defaults match the Home Sweet Home reference theme)
+theme:
+  primary: "#d97706"
+  font_sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif
+
 # Docs-only backend display values (never wired into runtime code)
 backend:
   http_entry: --http

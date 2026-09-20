@@ -1,0 +1,4 @@
+# Template sources contain {{TOKEN}} markup that Prettier cannot parse.
+# Rendered module output is standard files and is formatted by the module's own Prettier.
+*.tpl
+pnpm-lock.yaml
