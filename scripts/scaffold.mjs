@@ -11,8 +11,9 @@
 //   1  render failed (invalid config, unresolved token) / check found drift
 //   2  usage error
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, relative, dirname } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 
 const CONFIG_FILE = 'module.config.yaml';
 
@@ -41,8 +42,79 @@ function repoRoot() {
   return resolve(new URL('..', import.meta.url).pathname);
 }
 
+// --- Config loading & validation (T004) ---
+
+const REQUIRED_KEYS = [
+  'module_name',
+  'module_slug',
+  'module_description',
+  'npm_scope',
+  'repo_owner',
+  'repo_name',
+  'ghcr_org',
+  'packages',
+  'stack',
+  'umbrella_link',
+];
+
+const STACK_KEYS = ['backend', 'frontend', 'tooling'];
+
+const VALID_PACKAGES = ['backend', 'frontend'];
+
+const TOKEN_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const SCOPE_PATTERN = /^[a-z0-9]+$/;
+const GHCR_PATTERN = /^ghcr\.io\/[a-z0-9]+$/;
+const URL_PATTERN = /^https?:\/\/\S+$/;
+
+function validateConfig(config) {
+  const errors = [];
+
+  for (const key of REQUIRED_KEYS) {
+    const value = config[key];
+    if (value === undefined || value === null || value === '') {
+      errors.push(`missing or empty required key: ${key}`);
+      continue;
+    }
+    if (key === 'packages') {
+      if (!Array.isArray(value) || value.length < 1) {
+        errors.push(`packages must be a non-empty list`);
+      } else {
+        for (const pkg of value) {
+          if (!VALID_PACKAGES.includes(pkg)) {
+            errors.push(`packages contains invalid entry '${pkg}' (allowed: ${VALID_PACKAGES.join(', ')})`);
+          }
+        }
+        const unique = new Set(value);
+        if (unique.size !== value.length) errors.push(`packages contains duplicates`);
+      }
+    }
+    if (key === 'stack') {
+      for (const sk of STACK_KEYS) {
+        if (typeof value[sk] !== 'string' || value[sk].trim() === '') {
+          errors.push(`missing or empty required key: stack.${sk}`);
+        }
+      }
+    }
+  }
+
+  if (typeof config.module_slug === 'string' && !SLUG_PATTERN.test(config.module_slug)) {
+    errors.push(`module_slug must be kebab-case (^[a-z0-9]+(-[a-z0-9]+)*$)`);
+  }
+  if (typeof config.npm_scope === 'string' && !SCOPE_PATTERN.test(config.npm_scope)) {
+    errors.push(`npm_scope must be alphanumeric without '@' (^[a-z0-9]+$)`);
+  }
+  if (typeof config.ghcr_org === 'string' && !GHCR_PATTERN.test(config.ghcr_org)) {
+    errors.push(`ghcr_org must match ^ghcr\\.io/[a-z0-9]+$ (registry + owner)`);
+  }
+  if (typeof config.umbrella_link === 'string' && !URL_PATTERN.test(config.umbrella_link)) {
+    errors.push(`umbrella_link must be a valid http(s) URL`);
+  }
+
+  return errors;
+}
+
 function loadConfig(root) {
-  // Placeholder: full config validation lands in Phase 2 (T004).
   const file = resolve(root, CONFIG_FILE);
   let raw;
   try {
@@ -51,7 +123,195 @@ function loadConfig(root) {
     return { error: `config not found: expected ${CONFIG_FILE} at repo root` };
   }
   if (!raw.trim()) return { error: `config is empty: ${CONFIG_FILE}` };
-  return { config: { raw } };
+
+  let parsed;
+  try {
+    parsed = parseYaml(raw);
+  } catch (err) {
+    return { error: `config is invalid YAML: ${err.message}` };
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { error: `config must be a YAML mapping` };
+  }
+
+  const errors = validateConfig(parsed);
+  if (errors.length > 0) {
+    return { errors };
+  }
+  return { config: parsed };
+}
+
+// --- Derived values & token inventory (T005, T007) ---
+
+function derivedValues(config) {
+  const { npm_scope, module_slug, ghcr_org, backend = {} } = config;
+  return {
+    MODULE_NAME: config.module_name,
+    MODULE_SLUG: module_slug,
+    MODULE_DESCRIPTION: config.module_description,
+    NPM_SCOPE: npm_scope,
+    REPO_OWNER: config.repo_owner,
+    REPO_NAME: config.repo_name,
+    GHCR_ORG: ghcr_org,
+    UMBRELLA_LINK: config.umbrella_link,
+    STACK_BACKEND: config.stack.backend,
+    STACK_FRONTEND: config.stack.frontend,
+    STACK_TOOLING: config.stack.tooling,
+    BACKEND_PACKAGE: `@${npm_scope}/${module_slug}-backend`,
+    FRONTEND_PACKAGE: `@${npm_scope}/${module_slug}-components`,
+    BACKEND_IMAGE: `${ghcr_org}/${module_slug}-backend`,
+    SPA_IMAGE: `${ghcr_org}/${module_slug}-frontend`,
+    NPM_SCOPE_MAPPING: `@${npm_scope}:registry=https://npm.pkg.github.com/`,
+    MCP_SERVER_NAME: module_slug,
+    HTTP_ENTRY: backend.http_entry ?? '',
+    MCP_ENTRY: backend.mcp_entry ?? '',
+  };
+}
+
+// --- Template discovery & rendering (T005, T006) ---
+
+const SKIP_PATTERNS = [
+  /\/\.git\//,
+  /\/node_modules\//,
+  /\/dist\//,
+  /\/dist-app\//,
+  /\/dist-lib\//,
+  /\/dist-storybook\//,
+  /\/build\//,
+  /\/coverage\//,
+];
+
+// Files that are the scaffold's own tooling and must never be treated as templates.
+const NON_TEMPLATES = new Set([
+  'scripts/scaffold.mjs',
+  'module.config.yaml',
+  'package.json',
+  'pnpm-lock.yaml',
+  'README.md',
+  '.gitignore',
+]);
+
+function walkFiles(dir, out = [], prefix = '') {
+  for (const entry of readdirSync(dir)) {
+    const abs = resolve(dir, entry);
+    let stat;
+    try {
+      stat = statSync(abs);
+    } catch {
+      continue;
+    }
+    if (stat.isDirectory()) {
+      const rel = `${prefix}${entry}`;
+      if (SKIP_PATTERNS.some((p) => p.test(`/${rel}/`))) continue;
+      walkFiles(abs, out, `${rel}/`);
+    } else if (stat.isFile()) {
+      out.push(`${prefix}${entry}`);
+    }
+  }
+  return out;
+}
+
+// Template set: every .tpl file in the repo except the scaffold's own tooling.
+function discoverTemplates(root) {
+  const all = walkFiles(root);
+  return all.filter((f) => {
+    if (!f.endsWith('.tpl')) return false;
+    if (NON_TEMPLATES.has(f)) return false;
+    return true;
+  });
+}
+
+// Skip rules per `packages` (contracts/templates.md).
+function isTemplateEnabled(templatePath, packages) {
+  const hasBackend = packages.includes('backend');
+  const hasFrontend = packages.includes('frontend');
+  if (!hasBackend && (templatePath.startsWith('backend/') || templatePath === 'Dockerfile.backend.tpl')) {
+    return false;
+  }
+  if (!hasFrontend && (templatePath.startsWith('frontend/') || templatePath === 'Dockerfile.frontend.tpl' || templatePath === 'deploy/nginx.spa.conf.tpl')) {
+    return false;
+  }
+  return true;
+}
+
+// Substitute known tokens; \{{...}} collapses to literal {{...}}; unknown tokens are errors.
+function renderTemplate(content, tokens, templatePath) {
+  const unknown = [];
+  const rendered = content.replace(/(\\?)\{\{([A-Za-z0-9_]+)\}\}/g, (match, escaped, name) => {
+    if (escaped === '\\') return `{{${name}}}`;
+    if (Object.prototype.hasOwnProperty.call(tokens, name)) return tokens[name];
+    unknown.push(name);
+    return match;
+  });
+  if (unknown.length > 0) {
+    return { error: `${templatePath}: unresolved token(s): ${[...new Set(unknown)].map((n) => `{{${n}}}`).join(', ')}` };
+  }
+  return { content: rendered };
+}
+
+function outputPath(templatePath) {
+  return templatePath.endsWith('.tpl') ? templatePath.slice(0, -4) : templatePath;
+}
+
+function renderAll(root, config) {
+  const tokens = derivedValues(config);
+  const templates = discoverTemplates(root);
+  const outputs = [];
+  for (const template of templates) {
+    if (!isTemplateEnabled(template, config.packages)) continue;
+    const abs = resolve(root, template);
+    const content = readFileSync(abs, 'utf8');
+    const result = renderTemplate(content, tokens, template);
+    if (result.error) return { errors: [result.error] };
+    outputs.push({ template, output: outputPath(template), content: result.content });
+  }
+  return { outputs };
+}
+
+// --- Render mode (writes, atomic) & --check mode (read-only) (T006) ---
+
+function writeOutputs(root, outputs) {
+  for (const out of outputs) {
+    const abs = resolve(root, out.output);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, out.content);
+  }
+}
+
+function checkMode(root, outputs) {
+  const states = [];
+  for (const out of outputs) {
+    const abs = resolve(root, out.output);
+    let disk;
+    try {
+      disk = readFileSync(abs, 'utf8');
+    } catch {
+      states.push({ path: out.output, state: 'missing' });
+      continue;
+    }
+    states.push({ path: out.output, state: disk === out.content ? 'in_sync' : 'drifted' });
+  }
+
+  // unexpected: enabled outputs that exist on disk but were not produced by this render
+  const produced = new Set(outputs.map((o) => o.output));
+  for (const f of walkFiles(root)) {
+    if (f.endsWith('.tpl')) continue;
+    if (NON_TEMPLATES.has(f)) continue;
+    if (produced.has(f)) continue;
+    states.push({ path: f, state: 'unexpected' });
+  }
+
+  return states;
+}
+
+function reportStates(states) {
+  let ok = true;
+  for (const s of states) {
+    if (s.state === 'in_sync') continue;
+    ok = false;
+    console.error(`  ${s.state}: ${s.path}`);
+  }
+  return ok;
 }
 
 function main() {
@@ -67,21 +327,32 @@ function main() {
   }
 
   const root = repoRoot();
-  const { config, error: loadError } = loadConfig(root);
+  const { config, errors, error: loadError } = loadConfig(root);
   if (loadError) {
     console.error(`error: ${loadError}`);
     process.exit(1);
   }
-
-  if (flags.check) {
-    // Placeholder: drift check lands in Phase 2 (T006).
-    console.error('error: --check is not implemented yet (Phase 2)');
+  if (errors && errors.length > 0) {
+    for (const e of errors) console.error(`config error: ${e}`);
     process.exit(1);
   }
 
-  // Placeholder: render lands in Phase 2 (T005/T006).
-  console.error('error: render is not implemented yet (Phase 2)');
-  process.exit(1);
+  const { outputs, errors: renderErrors } = renderAll(root, config);
+  if (renderErrors && renderErrors.length > 0) {
+    for (const e of renderErrors) console.error(`render error: ${e}`);
+    process.exit(1);
+  }
+
+  if (flags.check) {
+    const states = checkMode(root, outputs);
+    const ok = reportStates(states);
+    process.exit(ok ? 0 : 1);
+  }
+
+  writeOutputs(root, outputs);
+  console.log(`[scaffold] rendered ${outputs.length} template(s)`);
+  for (const out of outputs) console.log(`  ${out.output}`);
+  process.exit(0);
 }
 
 main();
