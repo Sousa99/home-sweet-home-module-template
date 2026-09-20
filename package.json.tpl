@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
-    "@homesweethome/config": "^0.1.0",
+    "@sousa99/homesweethome-config": "^0.1.0",
     "concurrently": "^9.2.4",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",

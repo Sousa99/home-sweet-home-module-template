@@ -4,18 +4,18 @@ This guide covers prerequisites, quality gates, pipelines, package organization,
 practices for this module. It is generated from `module.config.yaml` by
 `scripts/scaffold.mjs`.
 
-## Prerequisites
+## 🧰 Prerequisites
 
 - Node.js 24 LTS
 - pnpm 11 (`packageManager: pnpm@11.25.0`)
 
-## Install
+## 📦 Install
 
 ```bash
 pnpm install
 ```
 
-## Package organization
+## 🧩 Package organization
 
 Home Sweet Home modules share a consistent package layout. This module ships:
 
@@ -38,7 +38,7 @@ Home Sweet Home modules share a consistent package layout. This module ships:
 {{/if}}
 
 {{#if backend}}
-## Backend
+## ⚙️ Backend
 
 ```bash
 pnpm --filter ./backend dev          # REST API ({{HTTP_ENTRY}}), tsx watch
@@ -55,7 +55,7 @@ pnpm --filter ./backend typecheck    # tsc --noEmit
 {{/if}}
 
 {{#if frontend}}
-## Frontend
+## 🎨 Frontend
 
 ```bash
 pnpm --filter ./frontend dev             # SPA dev server
@@ -67,7 +67,7 @@ pnpm --filter ./frontend typecheck       # tsc --noEmit
 ```
 {{/if}}
 
-## Quality gates
+## 🔒 Quality gates
 
 All of the following MUST pass before commit/merge:
 
@@ -79,7 +79,7 @@ pnpm typecheck     # tsc --noEmit (workspace)
 node scripts/scaffold.mjs --check   # template drift check
 ```
 
-### Template drift check
+### 🔀 Template drift check
 
 `module.config.yaml` is the single source of truth for documentation and packaging. The
 generated files (README, AGENTS, setup, package names) are rendered by
@@ -87,7 +87,7 @@ generated files (README, AGENTS, setup, package names) are rendered by
 `node scripts/scaffold.mjs --check`; a failure must be resolved by re-rendering or updating
 the config — never by bypassing the check.
 
-## Pipelines
+## 🚀 Pipelines
 
 - **CI** (`.github/workflows/ci.yml`) runs on every pull request: format, lint, typecheck,
   tests, builds, PR format, and the scaffold `--check`. A single aggregator check is the
@@ -96,14 +96,14 @@ the config — never by bypassing the check.
   gates, then semantic-release derives the version from conventional commits and publishes
   the artifacts (Docker images, npm package) at one shared version.
 
-## Pull requests
+## 🔀 Pull requests
 
 - **Title**: conventional commit `<type>(<scope>)?: <subject>` — enforced by the `📝 PR
   format` check.
 - **Branch**: `feature/NNN-kebab-case` or `fix/NNN-kebab-case`.
 - A guided **PR template** pre-fills every new PR body.
 
-## Good practices
+## 💡 Good practices
 
 - **Formatting is automated**: one formatter (Prettier), never hand-debated; formatting runs
   in the quality gates.
@@ -117,7 +117,7 @@ the config — never by bypassing the check.
   `.vscode/settings.json`); spurious IDE errors that do not reproduce in `tsc` are a
   toolchain mismatch to fix, not to ignore.
 
-## Governance
+## 🏛️ Governance
 
 See `.specify/memory/constitution.md` for the project's governing principles. Foundational
 decisions to settle when creating this module are listed in `docs/clarify.md`.

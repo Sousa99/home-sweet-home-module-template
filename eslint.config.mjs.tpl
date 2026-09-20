@@ -1,3 +1,3 @@
-import config from '@homesweethome/config/eslint';
+import config from '@sousa99/homesweethome-config/eslint';
 
 export default [...config];

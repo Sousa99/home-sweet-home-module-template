@@ -25,8 +25,11 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          registry-url: https://npm.pkg.github.com/
 
       - name: 📦 Install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "::group::pnpm install"
           pnpm install --frozen-lockfile
@@ -77,8 +80,11 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          registry-url: https://npm.pkg.github.com/
 
       - name: 📦 Install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "::group::pnpm install"
           pnpm install --frozen-lockfile

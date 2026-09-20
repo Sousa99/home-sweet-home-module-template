@@ -1,1 +1,1 @@
-{{NPM_SCOPE_MAPPING}}
+@{{NPM_SCOPE}}:registry=https://npm.pkg.github.com/

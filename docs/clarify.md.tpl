@@ -9,7 +9,7 @@ config values. For each item, confirm the value or edit the config (and re-run
 > hand-written application code by design (FR-012): the template deliberately does not wire
 > them into runtime.
 
-## Identity
+## 🪪 Identity
 
 | Decision | Current value | Status |
 |----------|---------------|--------|
@@ -21,7 +21,7 @@ config values. For each item, confirm the value or edit the config (and re-run
 | GHCR org | `{{GHCR_ORG}}` | Confirm |
 | Umbrella link | `{{UMBRELLA_LINK}}` | Confirm |
 
-## Package organization
+## 🧩 Package organization
 
 - [x] Backend: single dual-mode package `{{BACKEND_PACKAGE}}` (REST `{{HTTP_ENTRY}}` + MCP `{{MCP_ENTRY}}`)
 {{#if frontend}}
@@ -35,7 +35,7 @@ Confirm the included sides below:
 - [x] Frontend IS included
 {{/if}}
 
-## Runtime defaults (hand-written — NOT config-driven)
+## 🖊️ Runtime defaults (hand-written — NOT config-driven)
 
 These are application code defaults that live in the module's source and are written by hand
 (FR-012). Confirm each for this module:
@@ -48,19 +48,19 @@ These are application code defaults that live in the module's source and are wri
 {{/if}}
 - [ ] API/SPA ports, `/api` proxy target
 
-## Registries & publishing
+## 📦 Registries & publishing
 
 - [ ] Confirm `{{GHCR_ORG}}` is the correct GHCR namespace for this module's images
 - [ ] Confirm `@{{NPM_SCOPE}}` is the correct npm/GitHub Packages scope
 - [ ] Confirm the umbrella link `{{UMBRELLA_LINK}}` (placeholder until a Home Sweet Home org exists)
 
-## Technology variants
+## 🧬 Technology variants
 
 - [ ] Confirm the stack matches this module's needs: backend `{{STACK_BACKEND}}`; frontend
   `{{STACK_FRONTEND}}`; tooling `{{STACK_TOOLING}}`
 - [ ] Confirm the styling theme (primary `{{THEME_PRIMARY}}`) — see `module.config.yaml` → `theme`
 
-## How to apply a change
+## 🔁 How to apply a change
 
 1. Edit `module.config.yaml`.
 2. Run `node scripts/scaffold.mjs` to re-render generated files.

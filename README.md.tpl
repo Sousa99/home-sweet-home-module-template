@@ -12,7 +12,7 @@ packages: {{#if backend}}backend{{/if}}{{#if frontend}} frontend{{/if}}
 
 {{MODULE_DESCRIPTION}}
 
-## Stack
+## 🧰 Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -20,12 +20,12 @@ packages: {{#if backend}}backend{{/if}}{{#if frontend}} frontend{{/if}}
 {{/if}}{{#if frontend}}| Frontend | {{STACK_FRONTEND}} |
 {{/if}}| Tooling | {{STACK_TOOLING}} |
 
-## Prerequisites
+## 🧰 Prerequisites
 
 - Node.js 24 LTS
 - pnpm 11
 
-## Setup
+## 🚀 Setup
 
 ```bash
 pnpm install
@@ -36,7 +36,7 @@ package organization. See [docs/clarify.md](docs/clarify.md) for the foundationa
 to settle when creating this module.
 
 {{#if backend}}
-## Backend
+## ⚙️ Backend
 
 One dual-mode package — **REST API** (`{{HTTP_ENTRY}}`) and **MCP server** (`{{MCP_ENTRY}}`)
 — sharing the same service/db layer. Package: `{{BACKEND_PACKAGE}}`.
@@ -53,7 +53,7 @@ pnpm --filter ./backend start:mcp    # MCP server ({{MCP_ENTRY}})
 {{/if}}
 
 {{#if frontend}}
-## Frontend
+## 🎨 Frontend
 
 One package — **SPA app**, **Storybook workbench**, and a **publishable components library**
 — built from the same source. Package: `{{FRONTEND_PACKAGE}}`. Styling uses Tailwind CSS v4
@@ -67,7 +67,7 @@ pnpm --filter ./frontend build:lib       # components library (dist-lib)
 ```
 {{/if}}
 
-## Quality gates
+## 🔒 Quality gates
 
 ```bash
 pnpm lint       # ESLint
@@ -80,6 +80,6 @@ pnpm --filter ./frontend build:lib 2>/dev/null; node scripts/scaffold.mjs --chec
 All gates must pass before commit/merge. The `CI` workflow enforces them on every pull
 request; merging to `main` triggers the `Release` workflow.
 
-## Governance
+## 🏛️ Governance
 
 See `.specify/memory/constitution.md` for the project's governing principles.
